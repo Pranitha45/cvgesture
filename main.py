@@ -73,9 +73,10 @@ def detect_gesture(frame):
             y = int(index_tip.y * HEIGHT)
             index_tip_pos = (x, y)
 
-            # Gesture detection
-            pinch_dist = np.linalg.norm(np.array([index_tip.x - thumb_tip.x, index_tip.y - thumb_tip.y]))
+            # Finger states: up = tip.y < pip.y
             fingers = [landmarks[i].y < landmarks[i - 2].y for i in [8, 12, 16, 20]]
+
+            pinch_dist = np.linalg.norm(np.array([index_tip.x - thumb_tip.x, index_tip.y - thumb_tip.y]))
 
             if all(not f for f in fingers):
                 gesture = "fist"
@@ -109,41 +110,41 @@ while running:
         x, y = index_pos
         square = get_square_from_pos(x, y)
 
-        if gesture == "pinch" and not gesture_active:
-            gesture_active = True  # lock pinch
-            if square is not None:
-                if selected_square is not None:
-                    if square != selected_square:
-                        move = chess.Move(selected_square, square)
-                        if move in board.legal_moves:
-                            board.push(move)
-                            print("Move played:", move)
-                        else:
-                            print("Illegal move:", move)
-                    else:
-                        print("Same square selected again")
-                    selected_square = None
+        # Peace sign: Select a piece
+        if gesture == "peace" and square is not None:
+            selected_square = square
+            print("Selected:", square)
+
+        # Pinch to move
+        elif gesture == "pinch" and square is not None and selected_square is not None and not gesture_active:
+            gesture_active = True
+            if square != selected_square:
+                move = chess.Move(selected_square, square)
+                if move in board.legal_moves:
+                    board.push(move)
+                    print("Move played:", move)
                 else:
-                    selected_square = square
-                    print("Selected:", square)
+                    print("Illegal move:", move)
+            selected_square = None
 
         elif gesture != "pinch":
-            gesture_active = False  # unlock when not pinching
+            gesture_active = False
 
+        # Open hand = cancel selection
         if gesture == "open_palm":
             selected_square = None
             print("Selection cleared")
 
-        elif gesture == "peace":
-            if board.move_stack:
-                board.pop()
-                selected_square = None
-                print("Move undone")
-
+        # Fist = reset game
         elif gesture == "fist":
             board.reset()
             selected_square = None
             print("Board reset")
+
+        # Undo move (peace sign again when nothing selected)
+        elif gesture == "peace" and selected_square is None and board.move_stack:
+            board.pop()
+            print("Move undone")
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
